@@ -1,0 +1,673 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#EDEBE4">
+<title>福岡、行きたいところ</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root{
+    --ink:#1F2A33; --ink-soft:#5C6B75;
+    --ground:#EDEBE4; --surface:#FFFFFF; --line:#D8D4C8;
+    --indigo:#2B4A6F; --ume:#9C3F62; --done:#8A9AA3;
+    --d1:#9C3F62; --d2:#2B4A6F; --d3:#4E7A5E; --d4:#A96A2C; --d5:#6B4A7A; --d0:#8A9AA3;
+    --gothic:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+    --mincho:"Hiragino Mincho ProN","Yu Mincho","Songti SC",serif;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0}
+  body{background:var(--ground);color:var(--ink);font-family:var(--gothic);
+    font-size:15px;line-height:1.6;padding-bottom:env(safe-area-inset-bottom)}
+  .wrap{max-width:620px;margin:0 auto}
+
+  header{padding:22px 18px 14px}
+  h1{font-family:var(--mincho);font-weight:600;font-size:26px;letter-spacing:.04em;margin:0;line-height:1.35}
+  h1 small{display:block;font-family:var(--gothic);font-size:12px;font-weight:400;
+    letter-spacing:.1em;color:var(--ink-soft);margin-top:6px}
+  .tally{display:flex;align-items:baseline;gap:10px;margin-top:16px}
+  .tally b{font-family:var(--mincho);font-size:22px;font-weight:600}
+  .tally span{font-size:12px;color:var(--ink-soft)}
+  .pips{display:flex;gap:3px;margin-top:8px}
+  .pips i{flex:1;height:4px;background:var(--line);border-radius:2px;min-width:4px}
+  .pips i.on{background:var(--indigo)}
+
+  .mapbox{position:sticky;top:0;z-index:5;background:var(--ground);padding:0 0 6px;
+    box-shadow:0 8px 12px -12px rgba(31,42,51,.5)}
+  .mapwrap{position:relative}
+  #map{height:40vh;min-height:250px;background:#E4E1D7;
+    border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  body.picking #map{cursor:crosshair}
+  .views{position:absolute;left:10px;bottom:12px;z-index:401;display:flex;gap:6px}
+  .views button{font:12px/1 var(--gothic);padding:7px 11px;background:rgba(255,255,255,.94);
+    border:1px solid var(--line);border-radius:2px;color:var(--ink);cursor:pointer}
+  .pickbar{display:none;position:absolute;left:0;right:0;top:0;z-index:402;
+    background:var(--ume);color:#fff;font-size:12.5px;padding:8px 12px;
+    display:none;align-items:center;justify-content:space-between;gap:10px}
+  body.picking .pickbar{display:flex}
+  .pickbar button{background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);
+    color:#fff;font:12px/1 var(--gothic);padding:6px 10px;border-radius:2px;cursor:pointer}
+  .tilewarn{display:none;padding:8px 18px 2px;font-size:11.5px;color:var(--ink-soft)}
+  body.notiles .tilewarn{display:block}
+
+  .pin{display:grid;place-items:center;width:26px;height:26px;border-radius:50% 50% 50% 2px;
+    transform:rotate(45deg);background:var(--d0);border:1.5px solid var(--surface);
+    box-shadow:0 1px 4px rgba(31,42,51,.4);font:600 11px/1 var(--gothic);color:#fff}
+  .pin s{transform:rotate(-45deg);text-decoration:none}
+  .pin.d1{background:var(--d1)} .pin.d2{background:var(--d2)} .pin.d3{background:var(--d3)}
+  .pin.d4{background:var(--d4)} .pin.d5{background:var(--d5)} .pin.d0{background:var(--d0)}
+  .pin.done{background:var(--done);opacity:.65}
+  .pin.sel{width:33px;height:33px;font-size:13px;border-width:2px;z-index:600}
+  .pin.temp{background:#fff;color:var(--ume);border:2px solid var(--ume)}
+  .ref{display:flex;align-items:center;gap:5px;white-space:nowrap;font:11px/1 var(--gothic);color:var(--ink-soft)}
+  .ref::before{content:"";width:5px;height:5px;flex:0 0 auto;border-radius:50%;
+    background:var(--ink-soft);box-shadow:0 0 0 2px rgba(237,235,228,.85)}
+  .ref span{background:rgba(237,235,228,.8);padding:1px 3px;border-radius:2px}
+
+  .tabs{display:flex;gap:6px;overflow-x:auto;padding:14px 18px 0;scrollbar-width:none}
+  .genres{display:flex;gap:6px;overflow-x:auto;padding:8px 18px 0;scrollbar-width:none}
+  .tabs::-webkit-scrollbar,.genres::-webkit-scrollbar{display:none}
+  .tabs button{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--ink-soft);
+    font:13px/1 var(--gothic);padding:9px 14px;border-radius:2px;cursor:pointer}
+  .tabs button[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:#fff}
+  .genres button{flex:0 0 auto;border:1px solid var(--line);background:transparent;color:var(--ink-soft);
+    font:12px/1 var(--gothic);padding:6px 12px;border-radius:999px;cursor:pointer}
+  .genres button[aria-pressed="true"]{background:var(--ume);border-color:var(--ume);color:#fff}
+
+  .toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;
+    padding:12px 18px 2px;font-size:12px;color:var(--ink-soft)}
+  .toolbar button{background:none;border:none;font:inherit;color:var(--ink-soft);
+    text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0}
+
+  .addbar{padding:14px 18px 0}
+  .addbar > button{width:100%;background:transparent;border:1px dashed var(--ink-soft);
+    color:var(--ink);font:14px/1 var(--gothic);padding:14px;border-radius:3px;cursor:pointer}
+  .form{display:none;background:var(--surface);border:1px solid var(--line);border-radius:3px;
+    padding:15px 14px;margin-top:10px}
+  .form.open{display:block}
+  .form label{display:block;font-size:11.5px;color:var(--ink-soft);margin:11px 0 4px}
+  .form label:first-child{margin-top:0}
+  .form input{width:100%;font:14px var(--gothic);color:var(--ink);background:#FBFAF7;
+    border:1px solid var(--line);border-radius:2px;padding:9px 10px}
+  .two{display:flex;gap:9px}
+  .two > div{flex:1;min-width:0}
+  .locrow{display:flex;gap:8px;align-items:center;margin-top:5px;flex-wrap:wrap}
+  .locrow button{font:12.5px/1 var(--gothic);padding:9px 12px;background:var(--indigo);
+    border:none;color:#fff;border-radius:2px;cursor:pointer}
+  .locstate{font-size:11.5px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
+  .locstate.set{color:var(--indigo)}
+  .actions{display:flex;gap:9px;margin-top:16px}
+  .actions button{flex:1;font:14px/1 var(--gothic);padding:12px;border-radius:2px;cursor:pointer}
+  .actions .primary{background:var(--ink);border:none;color:#fff}
+  .actions .ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
+  .hint{font-size:11px;color:var(--ink-soft);margin:8px 0 0;line-height:1.7}
+
+  .day{padding:22px 18px 0}
+  .day > h2{font-family:var(--gothic);font-size:12px;font-weight:600;letter-spacing:.1em;
+    margin:0 0 10px;display:flex;align-items:center;gap:9px}
+  .day > h2 em{font-style:normal;width:9px;height:9px;border-radius:2px;flex:0 0 auto}
+  .day > h2 u{text-decoration:none;font-weight:400;letter-spacing:.02em;color:var(--ink-soft);font-size:11.5px}
+  .day > h2::after{content:"";flex:1;height:1px;background:var(--line)}
+  .d1 .sw{background:var(--d1)} .d2 .sw{background:var(--d2)} .d3 .sw{background:var(--d3)}
+  .d4 .sw{background:var(--d4)} .d5 .sw{background:var(--d5)} .d0 .sw{background:var(--d0)}
+
+  ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  li{background:var(--surface);border:1px solid var(--line);border-radius:3px;
+    display:flex;align-items:stretch;overflow:hidden}
+  li.done{background:#F5F3EE}
+  li.done .name,li.done .meta{color:var(--done)}
+  li.done .name{text-decoration:line-through;text-decoration-thickness:1px}
+  .tick{flex:0 0 auto;width:46px;border:none;background:transparent;
+    border-right:1px solid var(--line);cursor:pointer;display:grid;place-items:center;color:var(--line)}
+  li.done .tick{color:var(--indigo)}
+  .tick svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:2.4;
+    stroke-linecap:round;stroke-linejoin:round}
+  .body{flex:1;min-width:0;padding:11px 10px 11px 12px;cursor:pointer}
+  .name{font-size:15px;font-weight:600;letter-spacing:.01em;line-height:1.35}
+  .seq{font-family:var(--mincho);color:var(--ink-soft);font-weight:400}
+  .genre{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:400;letter-spacing:.06em;
+    color:var(--ume);border:1px solid currentColor;border-radius:2px;padding:1px 5px;vertical-align:2px}
+  li.done .genre{color:var(--done)}
+  .meta{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
+  .meta .hrs{font-variant-numeric:tabular-nums}
+  .meta .off{color:var(--ume)}
+  li.done .meta .off{color:var(--done)}
+  .row{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
+  .go,.setloc,.del{font-size:12px;background:none;border:none;padding:0;cursor:pointer;
+    text-decoration:none;border-bottom:1px solid currentColor;font-family:var(--gothic)}
+  .go{color:var(--indigo)}
+  .setloc{color:var(--ume)}
+  .del{color:var(--ink-soft)}
+  .picker{display:flex;gap:3px}
+  .picker button{width:25px;height:25px;padding:0;border:1px solid var(--line);background:transparent;
+    font:11px/1 var(--gothic);color:var(--ink-soft);border-radius:2px;cursor:pointer}
+  .picker button[aria-pressed="true"]{color:#fff;border-color:transparent}
+  .picker button.p1[aria-pressed="true"]{background:var(--d1)}
+  .picker button.p2[aria-pressed="true"]{background:var(--d2)}
+  .picker button.p3[aria-pressed="true"]{background:var(--d3)}
+  .picker button.p4[aria-pressed="true"]{background:var(--d4)}
+  .picker button.p5[aria-pressed="true"]{background:var(--d5)}
+  .picker button.p0[aria-pressed="true"]{background:var(--d0)}
+  .move{flex:0 0 auto;width:34px;border-left:1px solid var(--line);display:flex;flex-direction:column}
+  .move button{flex:1;border:none;background:transparent;color:var(--ink-soft);font-size:11px;cursor:pointer}
+  .move button:first-child{border-bottom:1px solid var(--line)}
+  .move button:disabled{color:var(--line);cursor:default}
+
+  .legs{font-size:11.5px;color:var(--ink-soft);padding:10px 0 0;font-variant-numeric:tabular-nums}
+  .empty{padding:26px 18px;font-size:13px;color:var(--ink-soft)}
+  footer{padding:30px 18px 44px;font-size:11px;color:var(--ink-soft);line-height:1.8}
+  :focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+  .leaflet-control-scale-line{background:rgba(255,255,255,.85);border-color:var(--ink-soft);
+    color:var(--ink-soft);font:11px/1.4 var(--gothic)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>福岡、行きたいところ<small id="sub">手書きメモ 11件 ／ 5日プラン</small></h1>
+    <div class="tally"><b id="cnt">0 / 11</b><span>まわった</span></div>
+    <div class="pips" id="pips"></div>
+  </header>
+</div>
+
+<div class="mapbox">
+  <div class="mapwrap">
+    <div id="map"></div>
+    <div class="pickbar"><span id="pickmsg">地図をタップして位置を指定</span><button id="pickcancel" type="button">やめる</button></div>
+    <div class="views">
+      <button id="v-all" type="button">全体</button>
+      <button id="v-city" type="button">福岡市街</button>
+    </div>
+  </div>
+  <p class="tilewarn">背景の地図画像はこのプレビュー枠では読み込めません。かわりに主要駅・目盛り・距離スケールで位置関係を出しています。ダウンロードしてSafariなどで開くと通常の地図が表示されます。</p>
+</div>
+
+<div class="wrap">
+  <div class="tabs" id="tabs"></div>
+  <div class="genres" id="genres"></div>
+
+  <div class="addbar">
+    <button id="addopen" type="button">＋ 行きたいところを追加</button>
+    <div class="form" id="form">
+      <label for="f-n">店名・場所の名前</label>
+      <input id="f-n" type="text" placeholder="例：豚骨ラーメン店">
+      <div class="two">
+        <div>
+          <label for="f-g">ジャンル</label>
+          <input id="f-g" type="text" list="genrelist" placeholder="雑貨・カフェなど">
+          <datalist id="genrelist"></datalist>
+        </div>
+        <div>
+          <label for="f-a">エリア</label>
+          <input id="f-a" type="text" placeholder="天神・糸島など">
+        </div>
+      </div>
+      <label for="f-ad">住所（マップ検索に使います）</label>
+      <input id="f-ad" type="text" placeholder="中央区天神1-1-1">
+      <div class="two">
+        <div>
+          <label for="f-h">営業時間</label>
+          <input id="f-h" type="text" placeholder="11:00–19:00">
+        </div>
+        <div>
+          <label for="f-o">定休日・メモ</label>
+          <input id="f-o" type="text" placeholder="月休 / 予約制 など">
+        </div>
+      </div>
+      <label>Day</label>
+      <span class="picker" id="f-day"></span>
+      <label>地図上の位置</label>
+      <div class="locrow">
+        <button id="f-pick" type="button">地図をタップして指定</button>
+        <span class="locstate" id="f-loc">未設定</span>
+      </div>
+      <label for="f-url">Googleマップのリンクか座標を貼る</label>
+      <input id="f-url" type="text" placeholder="https://www.google.com/maps/... / 33.5897, 130.4207">
+      <p class="hint">リンクは座標を含む形式（アドレスバーのURL）なら読み取れます。maps.app.goo.gl の短縮リンクは座標が入っていないので、地図タップで指定してください。位置は後から設定してもかまいません。</p>
+      <div class="actions">
+        <button class="ghost" id="f-cancel" type="button">やめる</button>
+        <button class="primary" id="f-save" type="button">追加する</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <span id="shown"></span>
+    <span><button id="replan" type="button">おすすめ順に戻す</button>　<button id="reset" type="button">チェックを消す</button></span>
+  </div>
+  <div id="list"></div>
+  <footer>
+    Dayの数字を押すと日程を入れ替えられます。「−」は未定。右端の▲▼で同じDay内の順番を変えられます。<br>
+    時刻と距離は目安です。距離は直線距離なので、実際の移動時間は経路によって変わります。営業時間・定休日は行く前に「マップで開く」で確認してください。<br>
+    メモで打ち消していた BUFFER と SUPER PERSONAL SHOWCASE は入れていません。
+  </footer>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const BASE = [
+  {id:"standard", n:"THE STANDARD MANUAL", g:"雑貨", area:"博多・住吉", hrs:"11:00–19:00", off:"木休",
+   ad:"博多区住吉3-9-20 1F", lat:33.5853664, lng:130.410618, d:1, o:1, t:"11:00"},
+  {id:"moma", n:"MoMA Design Store 福岡", g:"雑貨", area:"天神", hrs:"11:00–20:00", off:"",
+   ad:"中央区天神1-11-1 ONE FUKUOKA BLDG 2F", lat:33.5910081, lng:130.3997905, d:1, o:2, t:"13:00"},
+  {id:"oyafuko", n:"親富孝通り", g:"まち歩き", area:"大名", hrs:"", off:"",
+   ad:"中央区大名1丁目", lat:33.5935648, lng:130.3946362, d:1, o:3, t:"15:30"},
+  {id:"feels", n:"FEELS GOOD STORE", g:"カフェ・雑貨", area:"薬院", hrs:"10:00–19:00", off:"",
+   ad:"中央区薬院3-12-22 1F", lat:33.5795284, lng:130.39837, d:2, o:1, t:"10:00"},
+  {id:"kurasu", n:"くらすこと", g:"雑貨", area:"平尾", hrs:"11:30–18:00", off:"水休",
+   ad:"中央区平尾1-11-21 村田ビル2F・3F", lat:33.576903, lng:130.40128, d:2, o:2, t:"11:30"},
+  {id:"plase", n:"PLASE.STORE 大楠店", g:"文房具", area:"南区・柳河内", hrs:"13:00–18:00", off:"日休",
+   ad:"南区柳河内2-6-97 やわらぎビル202", lat:33.551984, lng:130.406454, d:2, o:3, t:"13:30"},
+  {id:"hitsuji", n:"をかしひつじや 福岡本店", g:"駄菓子", area:"南区・大橋", hrs:"10:00–18:00", off:"",
+   ad:"南区大橋3-26-8", lat:33.55323, lng:130.428517, d:2, o:4, t:"15:30"},
+  {id:"heyho", n:"HEY&HO", g:"雑貨", area:"西区・糸島", hrs:"11:00–18:00", off:"",
+   ad:"西区西浦1235", lat:33.6525227, lng:130.2093985, d:3, o:1, t:"11:00"},
+  {id:"marine", n:"マリンワールド海の中道", g:"水族館", area:"東区・海の中道", hrs:"9:30–17:30", off:"入館 ¥2,500",
+   ad:"東区西戸崎18-28", lat:33.660851, lng:130.363413, d:4, o:1, t:"10:00"},
+  {id:"dazaifu", n:"太宰府天満宮", g:"食べ歩き", area:"太宰府", hrs:"6:00–19:30", off:"",
+   ad:"太宰府市宰府4-7-1", lat:33.5213697, lng:130.5348239, d:5, o:1, t:"8:00"},
+  {id:"nbase", n:"n-BASEMENT", g:"雑貨", area:"北九州・小倉", hrs:"10:00–19:00", off:"水休",
+   ad:"北九州市小倉北区西港町15", lat:33.9002733, lng:130.8554835, d:5, o:2, t:"13:00"}
+];
+const DAYNOTE = {
+  1:"博多→天神→大名。地下鉄1〜2駅＋徒歩圏。木曜は休みの店あり",
+  2:"薬院から西鉄沿いに南下。水曜・日曜は休みの店あり",
+  3:"糸島。市街から西へ車で40分ほど",
+  4:"海の中道。半日みる前提",
+  5:"太宰府で午前、九州道か新幹線で小倉へ。水曜は休みの店あり",
+  0:"日程が決まっていないもの"
+};
+const REFS = [
+  {n:"博多駅", lat:33.5897, lng:130.4207}, {n:"福岡空港", lat:33.5859, lng:130.4510},
+  {n:"大橋駅", lat:33.5566, lng:130.4258}, {n:"太宰府駅", lat:33.5136, lng:130.5228},
+  {n:"筑前前原駅", lat:33.5578, lng:130.1980}, {n:"小倉駅", lat:33.8869, lng:130.8825}
+];
+const DAYCOL = {1:"#9C3F62",2:"#2B4A6F",3:"#4E7A5E",4:"#A96A2C",5:"#6B4A7A",0:"#8A9AA3"};
+const KEY = "fukuoka-plan-v3", OLDKEY = "fukuoka-plan-v2";
+const CITY = [[33.545,130.375],[33.600,130.440]];
+
+let custom = [], st = {}, dayF = "all", genF = "all", sel = null;
+let pickTarget = null, tempLL = null, formDay = 0;
+const markers = {};
+const $ = s => document.querySelector(s);
+const ALL = () => BASE.concat(custom);
+const P = id => ALL().find(x => x.id === id);
+const esc = s => String(s == null ? "" : s).replace(/[&<>"']/g, c =>
+  ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const mapsUrl = p => "https://www.google.com/maps/search/?api=1&query=" +
+  encodeURIComponent([p.n, p.ad || p.area || "福岡"].filter(Boolean).join(" "));
+const km = (a, b) => {
+  const R = 6371, r = Math.PI/180;
+  const dLat = (b.lat-a.lat)*r, dLng = (b.lng-a.lng)*r;
+  const h = Math.sin(dLat/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+};
+const ofDay = d => ALL().filter(p => st[p.id] && st[p.id].d === d).sort((a,b) => st[a.id].o - st[b.id].o);
+const hasLL = p => typeof p.lat === "number" && typeof p.lng === "number";
+const genreList = () => {
+  const out = [];
+  ALL().forEach(p => { if (p.g && !out.includes(p.g)) out.push(p.g); });
+  return out;
+};
+
+/* ---------- map ---------- */
+const map = L.map("map", {zoomControl:false, attributionControl:false}).setView([33.60,130.42], 10);
+L.control.zoom({position:"topright"}).addTo(map);
+L.control.scale({position:"bottomright", imperial:false, maxWidth:110}).addTo(map);
+
+const graticule = L.layerGroup();
+for (let la = 33.3; la <= 34.1; la += 0.1)
+  L.polyline([[la,129.9],[la,131.3]], {color:"#B9B4A5", weight:1, interactive:false}).addTo(graticule);
+for (let ln = 130.0; ln <= 131.2; ln += 0.1)
+  L.polyline([[33.2,ln],[34.2,ln]], {color:"#B9B4A5", weight:1, interactive:false}).addTo(graticule);
+
+const tiles = L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {maxZoom:19});
+let noTiles = false;
+tiles.on("tileerror", () => {
+  if (noTiles) return;
+  noTiles = true;
+  document.body.classList.add("notiles");
+  graticule.addTo(map);
+  map.invalidateSize();
+});
+tiles.addTo(map);
+
+REFS.forEach(r => L.marker([r.lat,r.lng], {
+  icon: L.divIcon({className:"", html:`<div class="ref"><span>${r.n}</span></div>`, iconSize:[0,0], iconAnchor:[3,3]}),
+  interactive:false, zIndexOffset:-500
+}).addTo(map));
+
+const routes = L.layerGroup().addTo(map);
+let tempMarker = null;
+
+function pinIcon(html, cls){
+  return L.divIcon({className:"", html:`<div class="pin ${cls}"><s>${html}</s></div>`,
+    iconSize:[26,26], iconAnchor:[13,26]});
+}
+function syncMarkers(){
+  ALL().forEach(p => {
+    if (!hasLL(p)){
+      if (markers[p.id]){ map.removeLayer(markers[p.id]); delete markers[p.id]; }
+      return;
+    }
+    if (!markers[p.id]){
+      const m = L.marker([p.lat,p.lng], {icon: pinIcon("", "d0"), title:p.n}).addTo(map);
+      m.on("click", () => select(p.id, true));
+      markers[p.id] = m;
+    } else {
+      markers[p.id].setLatLng([p.lat,p.lng]);
+    }
+  });
+  Object.keys(markers).forEach(id => {
+    if (!P(id)){ map.removeLayer(markers[id]); delete markers[id]; }
+  });
+}
+function bounds(){
+  const pts = ALL().filter(hasLL).map(p => [p.lat,p.lng]);
+  return pts.length ? L.latLngBounds(pts) : L.latLngBounds([[33.52,130.20],[33.90,130.86]]);
+}
+const fitAll = () => map.fitBounds(bounds(), {padding:[38,38]});
+$("#v-all").onclick = fitAll;
+$("#v-city").onclick = () => map.fitBounds(CITY, {padding:[24,24]});
+
+function paintMap(fit){
+  syncMarkers();
+  routes.clearLayers();
+  const single = dayF !== "all";
+  ALL().forEach(p => {
+    const s = st[p.id], m = markers[p.id];
+    if (!m || !s) return;
+    const visible = (dayF === "all" || s.d === Number(dayF)) && (genF === "all" || p.g === genF);
+    const el = m.getElement();
+    if (!el) return;
+    el.style.display = visible ? "" : "none";
+    const pin = el.querySelector(".pin");
+    pin.className = "pin d" + s.d + (s.v ? " done" : "") + (sel === p.id ? " sel" : "");
+    pin.querySelector("s").textContent = single ? s.o : (s.d || "−");
+  });
+  if (single){
+    const d = Number(dayF), stops = ofDay(d).filter(hasLL);
+    if (stops.length > 1)
+      L.polyline(stops.map(p => [p.lat,p.lng]),
+        {color:DAYCOL[d], weight:2, opacity:.75, dashArray:"5 5"}).addTo(routes);
+    if (fit && stops.length) map.fitBounds(L.latLngBounds(stops.map(p => [p.lat,p.lng])), {padding:[46,46]});
+  } else if (fit) fitAll();
+}
+function select(id, fromMap){
+  sel = id;
+  paintMap(false);
+  if (fromMap){
+    const row = document.getElementById("row-" + id);
+    if (row) row.scrollIntoView({block:"center", behavior:"smooth"});
+  } else {
+    const p = P(id);
+    if (hasLL(p)) map.setView([p.lat,p.lng], Math.max(map.getZoom(), 14), {animate:true});
+  }
+}
+
+/* ---------- 位置のピック ---------- */
+function startPick(target, msg){
+  pickTarget = target;
+  $("#pickmsg").textContent = msg;
+  document.body.classList.add("picking");
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+function stopPick(){
+  pickTarget = null;
+  document.body.classList.remove("picking");
+}
+$("#pickcancel").onclick = stopPick;
+map.on("click", e => {
+  if (!pickTarget) return;
+  const ll = {lat:+e.latlng.lat.toFixed(6), lng:+e.latlng.lng.toFixed(6)};
+  if (pickTarget === "new"){
+    tempLL = ll;
+    if (tempMarker) map.removeLayer(tempMarker);
+    tempMarker = L.marker([ll.lat,ll.lng], {icon: pinIcon("＋","temp"), zIndexOffset:700}).addTo(map);
+    showLoc();
+  } else {
+    const p = P(pickTarget);
+    if (p){ p.lat = ll.lat; p.lng = ll.lng; save(); renderList(); paintMap(false); }
+  }
+  stopPick();
+});
+function showLoc(){
+  const el = $("#f-loc");
+  if (tempLL){ el.textContent = tempLL.lat.toFixed(4) + ", " + tempLL.lng.toFixed(4); el.classList.add("set"); }
+  else { el.textContent = "未設定"; el.classList.remove("set"); }
+}
+function parseLL(s){
+  if (!s) return null;
+  let m = s.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/) || s.match(/!3d(-?\d+\.\d+)!4d(-?\d+\.\d+)/)
+       || s.match(/[?&]q=(-?\d+\.\d+),\s*(-?\d+\.\d+)/) || s.match(/^\s*(-?\d+\.\d+)\s*[,\s]\s*(-?\d+\.\d+)\s*$/);
+  if (!m) return null;
+  const lat = parseFloat(m[1]), lng = parseFloat(m[2]);
+  if (Math.abs(lat) > 90 || Math.abs(lng) > 180) return null;
+  return {lat, lng};
+}
+
+/* ---------- state ---------- */
+function ensureState(){
+  ALL().forEach(p => {
+    if (!st[p.id]) st[p.id] = {d: p.d != null ? p.d : 0, o: p.o != null ? p.o : ofDay(p.d || 0).length + 1, v:0};
+  });
+}
+async function readKey(k){
+  try { if (window.storage){ const r = await window.storage.get(k); if (r && r.value) return r.value; } } catch(e){}
+  try { return localStorage.getItem(k); } catch(e){ return null; }
+}
+async function load(){
+  BASE.forEach(p => st[p.id] = {d:p.d, o:p.o, v:0});
+  const raw = await readKey(KEY);
+  if (raw){
+    try {
+      const s = JSON.parse(raw);
+      custom = Array.isArray(s.custom) ? s.custom : [];
+      ensureState();
+      Object.keys(s.st || {}).forEach(id => { if (P(id)) st[id] = Object.assign(st[id] || {}, s.st[id]); });
+    } catch(e){}
+  } else {
+    const old = await readKey(OLDKEY);
+    if (old){ try {
+      const s = JSON.parse(old);
+      Object.keys(s).forEach(id => { if (st[id]) st[id] = Object.assign(st[id], s[id]); });
+    } catch(e){} }
+  }
+  ensureState();
+}
+async function save(){
+  const v = JSON.stringify({st, custom});
+  try { if (window.storage){ await window.storage.set(KEY, v); return; } } catch(e){}
+  try { localStorage.setItem(KEY, v); } catch(e){}
+}
+function renumber(d){ ofDay(d).forEach((p, i) => st[p.id].o = i + 1); }
+
+/* ---------- 追加フォーム ---------- */
+function renderFormDay(){
+  $("#f-day").innerHTML = [1,2,3,4,5,0].map(d =>
+    `<button class="p${d}" type="button" data-fd="${d}" aria-pressed="${formDay===d}">${d || "−"}</button>`).join("");
+  $("#f-day").querySelectorAll("button").forEach(b => b.onclick = () => { formDay = +b.dataset.fd; renderFormDay(); });
+}
+function openForm(open){
+  $("#form").classList.toggle("open", open);
+  $("#addopen").textContent = open ? "－ 閉じる" : "＋ 行きたいところを追加";
+  if (open){
+    $("#genrelist").innerHTML = genreList().map(g => `<option value="${esc(g)}">`).join("");
+    renderFormDay();
+    $("#f-n").focus();
+  } else clearForm();
+}
+function clearForm(){
+  ["f-n","f-g","f-a","f-ad","f-h","f-o","f-url"].forEach(i => $("#" + i).value = "");
+  formDay = 0; tempLL = null;
+  if (tempMarker){ map.removeLayer(tempMarker); tempMarker = null; }
+  showLoc(); renderFormDay(); stopPick();
+}
+$("#addopen").onclick = () => openForm(!$("#form").classList.contains("open"));
+$("#f-cancel").onclick = () => openForm(false);
+$("#f-pick").onclick = () => startPick("new", "地図をタップして位置を指定");
+$("#f-url").oninput = e => {
+  const ll = parseLL(e.target.value);
+  if (!ll) return;
+  tempLL = ll;
+  if (tempMarker) map.removeLayer(tempMarker);
+  tempMarker = L.marker([ll.lat,ll.lng], {icon: pinIcon("＋","temp"), zIndexOffset:700}).addTo(map);
+  map.setView([ll.lat,ll.lng], 14);
+  showLoc();
+};
+$("#f-save").onclick = () => {
+  const n = $("#f-n").value.trim();
+  if (!n){ $("#f-n").focus(); return; }
+  const p = {
+    id: "c" + Date.now().toString(36),
+    n, g: $("#f-g").value.trim() || "その他",
+    area: $("#f-a").value.trim(), ad: $("#f-ad").value.trim(),
+    hrs: $("#f-h").value.trim(), off: $("#f-o").value.trim(),
+    t: "", custom: true
+  };
+  if (tempLL){ p.lat = tempLL.lat; p.lng = tempLL.lng; }
+  custom.push(p);
+  st[p.id] = {d: formDay, o: ofDay(formDay).length + 1, v: 0};
+  dayF = "all"; genF = "all";
+  save(); openForm(false); renderTabs(); renderList(); renderTally(); paintMap(false);
+  const row = document.getElementById("row-" + p.id);
+  if (row) row.scrollIntoView({block:"center", behavior:"smooth"});
+};
+
+/* ---------- render ---------- */
+function renderTabs(){
+  const tabs = [["all","すべて"]].concat([1,2,3,4,5].map(d => [String(d), "Day " + d]));
+  if (ALL().some(p => st[p.id] && st[p.id].d === 0)) tabs.push(["0","未定"]);
+  $("#tabs").innerHTML = tabs.map(([v,l]) =>
+    `<button type="button" data-d="${v}" aria-pressed="${dayF===v}">${l}</button>`).join("");
+  $("#tabs").querySelectorAll("button").forEach(b => b.onclick = () => {
+    dayF = b.dataset.d; sel = null; renderTabs(); renderList(); paintMap(true);
+  });
+  const gs = [["all","ジャンル：すべて"]].concat(genreList().map(g => [g,g]));
+  $("#genres").innerHTML = gs.map(([v,l]) =>
+    `<button type="button" data-g="${esc(v)}" aria-pressed="${genF===v}">${esc(l)}</button>`).join("");
+  $("#genres").querySelectorAll("button").forEach(b => b.onclick = () => {
+    genF = b.dataset.g; renderTabs(); renderList(); paintMap(false);
+  });
+}
+
+function card(p, showSeq){
+  const s = st[p.id];
+  const meta = [esc(p.area), p.hrs ? `<span class="hrs">${esc(p.hrs)}</span>` : "",
+    p.off ? `<span class="off">${esc(p.off)}</span>` : ""].filter(Boolean).join("　");
+  const pick = [1,2,3,4,5,0].map(d =>
+    `<button class="p${d}" type="button" data-day="${p.id}:${d}" aria-pressed="${s.d===d}"
+      aria-label="${esc(p.n)} を ${d?("Day"+d):"未定"} に">${d || "−"}</button>`).join("");
+  const list = ofDay(s.d), i = list.indexOf(p);
+  const loc = hasLL(p) ? "" : `<button class="setloc" type="button" data-loc="${p.id}">地図で位置を指定</button>`;
+  const del = p.custom ? `<button class="del" type="button" data-del="${p.id}">削除</button>` : "";
+  return `<li id="row-${p.id}" class="${s.v ? "done" : ""}">
+    <button class="tick" type="button" data-t="${p.id}" aria-pressed="${!!s.v}" aria-label="${esc(p.n)} を行ったにする">
+      <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6"/></svg></button>
+    <div class="body" data-s="${p.id}">
+      <div class="name">${showSeq ? `<span class="seq">${s.o}.</span> ` : ""}${esc(p.n)}<span class="genre">${esc(p.g)}</span></div>
+      <div class="meta">${meta}${p.t && s.d ? `　${p.t}ごろ` : ""}${hasLL(p) ? "" : "　位置未設定"}</div>
+      ${p.ad ? `<div class="meta">${esc(p.ad)}</div>` : ""}
+      <div class="row">
+        <a class="go" href="${mapsUrl(p)}" target="_blank" rel="noopener">マップで開く</a>
+        ${loc}${del}
+        <span class="picker">${pick}</span>
+      </div>
+    </div>
+    <div class="move">
+      <button type="button" data-mv="${p.id}:-1" ${i<=0||!s.d?"disabled":""} aria-label="順番を上げる">▲</button>
+      <button type="button" data-mv="${p.id}:1" ${i<0||i>=list.length-1||!s.d?"disabled":""} aria-label="順番を下げる">▼</button>
+    </div></li>`;
+}
+
+function daySection(d){
+  const stops = ofDay(d).filter(p => genF === "all" || p.g === genF);
+  if (!stops.length) return "";
+  const full = ofDay(d).filter(hasLL);
+  let legs = "";
+  if (full.length > 1 && genF === "all"){
+    const parts = full.slice(1).map((p, i) => `${esc(full[i].area || full[i].n)} → ${esc(p.area || p.n)} ${km(full[i], p).toFixed(1)}km`);
+    const total = full.slice(1).reduce((a, p, i) => a + km(full[i], p), 0);
+    legs = `<p class="legs">${parts.join("　／　")}<br>直線合計 約${total.toFixed(1)}km</p>`;
+  }
+  return `<section class="day d${d}">
+    <h2><em class="sw"></em>${d ? "Day " + d : "未定"}<u>${DAYNOTE[d] || ""}</u></h2>
+    <ul>${stops.map(p => card(p, !!d)).join("")}</ul>${legs}</section>`;
+}
+
+function renderList(){
+  const days = dayF === "all" ? [1,2,3,4,5,0] : [Number(dayF)];
+  const html = days.map(daySection).join("");
+  const shown = ALL().filter(p => (dayF === "all" || st[p.id].d === Number(dayF)) && (genF === "all" || p.g === genF)).length;
+  $("#shown").textContent = shown + "件を表示";
+  $("#list").innerHTML = html || `<p class="empty">この条件に当てはまる場所がありません。</p>`;
+
+  $("#list").querySelectorAll(".tick").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const s = st[b.dataset.t]; s.v = s.v ? 0 : 1;
+    save(); renderList(); renderTally(); paintMap(false);
+  });
+  $("#list").querySelectorAll("[data-day]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const parts = b.dataset.day.split(":");
+    const id = parts[0], d = Number(parts[1]), old = st[id].d;
+    if (old === d) return;
+    st[id].d = d; st[id].o = ofDay(d).length;
+    renumber(old); renumber(d);
+    save(); renderTabs(); renderList(); paintMap(false);
+  });
+  $("#list").querySelectorAll("[data-mv]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const [id, dir] = b.dataset.mv.split(":");
+    const d = st[id].d, list = ofDay(d), i = list.indexOf(P(id)), j = i + Number(dir);
+    if (j < 0 || j >= list.length) return;
+    const a = st[list[i].id], c = st[list[j].id];
+    const tmp = a.o; a.o = c.o; c.o = tmp;
+    save(); renderList(); paintMap(false);
+  });
+  $("#list").querySelectorAll("[data-loc]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const p = P(b.dataset.loc);
+    startPick(b.dataset.loc, `「${p.n}」の位置を地図でタップ`);
+  });
+  $("#list").querySelectorAll("[data-del]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const id = b.dataset.del, p = P(id);
+    if (!confirm(`「${p.n}」をリストから削除します。よろしいですか？`)) return;
+    const d = st[id].d;
+    custom = custom.filter(x => x.id !== id);
+    delete st[id];
+    if (markers[id]){ map.removeLayer(markers[id]); delete markers[id]; }
+    renumber(d);
+    save(); renderTabs(); renderList(); renderTally(); paintMap(false);
+  });
+  $("#list").querySelectorAll(".body").forEach(el => el.onclick = e => {
+    if (e.target.closest("a") || e.target.closest("button")) return;
+    select(el.dataset.s, false);
+  });
+}
+
+function renderTally(){
+  const all = ALL(), n = all.filter(p => st[p.id] && st[p.id].v).length;
+  $("#cnt").textContent = n + " / " + all.length;
+  $("#pips").innerHTML = all.map(p => `<i class="${st[p.id] && st[p.id].v ? "on" : ""}"></i>`).join("");
+  $("#sub").textContent = custom.length
+    ? `手書きメモ 11件 ＋ 追加 ${custom.length}件 ／ 5日プラン`
+    : "手書きメモ 11件 ／ 5日プラン";
+}
+
+$("#reset").onclick = () => {
+  if (!confirm("行ったチェックを全部消します。よろしいですか？")) return;
+  ALL().forEach(p => st[p.id].v = 0);
+  save(); renderList(); renderTally(); paintMap(false);
+};
+$("#replan").onclick = () => {
+  if (!confirm("メモ11件のDayと順番を、おすすめの5日プランに戻します。追加した場所とチェックはそのままです。")) return;
+  BASE.forEach(p => { st[p.id].d = p.d; st[p.id].o = p.o; });
+  [1,2,3,4,5,0].forEach(renumber);
+  save(); renderTabs(); renderList(); paintMap(true);
+};
+
+(async () => {
+  await load();
+  renderTabs(); renderList(); renderTally(); paintMap(true); showLoc();
+})();
+</script>
