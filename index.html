@@ -124,7 +124,14 @@
   .name{font-size:15px;font-weight:600;letter-spacing:.01em;line-height:1.35}
   .seq{font-family:var(--mincho);color:var(--ink-soft);font-weight:400}
   .genre{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:400;letter-spacing:.06em;
-    color:var(--ume);border:1px solid currentColor;border-radius:2px;padding:1px 5px;vertical-align:2px}
+    font-family:var(--gothic);color:var(--ume);background:transparent;
+    border:1px solid currentColor;border-radius:2px;padding:1px 5px;vertical-align:2px;cursor:pointer}
+  .gedit{display:flex;gap:7px;align-items:center;margin-top:9px}
+  .gedit input{flex:1;min-width:0;font:13px var(--gothic);color:var(--ink);background:#FBFAF7;
+    border:1px solid var(--line);border-radius:2px;padding:7px 9px}
+  .gedit button{font:12px/1 var(--gothic);padding:8px 11px;border-radius:2px;cursor:pointer}
+  .gedit .ok{background:var(--ink);border:none;color:#fff}
+  .gedit .no{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
   li.done .genre{color:var(--done)}
   .meta{font-size:11.5px;color:var(--ink-soft);margin-top:5px}
   .meta .hrs{font-variant-numeric:tabular-nums}
@@ -236,6 +243,7 @@
   <div id="list"></div>
   <footer>
     Dayの数字を押すと日程を入れ替えられます。「−」は未定。右端の▲▼で同じDay内の順番を変えられます。<br>
+    店名の横のジャンルタグを押すと、そのジャンルを書き換えられます。入力欄には候補が出ますが、ない言葉を打てばそのまま増えます。<br>
     時刻と距離は目安です。距離は直線距離なので、実際の移動時間は経路によって変わります。営業時間・定休日は行く前に「マップで開く」で確認してください。<br>
     メモで打ち消していた BUFFER と SUPER PERSONAL SHOWCASE は入れていません。
   </footer>
@@ -280,12 +288,16 @@ const REFS = [
   {n:"大橋駅", lat:33.5566, lng:130.4258}, {n:"太宰府駅", lat:33.5136, lng:130.5228},
   {n:"筑前前原駅", lat:33.5578, lng:130.1980}, {n:"小倉駅", lat:33.8869, lng:130.8825}
 ];
+const PRESETS = ["飲食店","ラーメン","うどん・そば","寿司・魚","もつ鍋・水炊き","焼き鳥","居酒屋・バー",
+  "屋台","カフェ","スイーツ","パン屋","市場","食べ歩き","雑貨","文房具","本屋","アパレル","インテリア",
+  "観光","神社・寺","公園・自然","ビーチ","展望・夜景","温泉・銭湯","美術館・博物館","水族館","駄菓子",
+  "まち歩き","ホテル","土産"];
 const DAYCOL = {1:"#9C3F62",2:"#2B4A6F",3:"#4E7A5E",4:"#A96A2C",5:"#6B4A7A",0:"#8A9AA3"};
 const KEY = "fukuoka-plan-v3", OLDKEY = "fukuoka-plan-v2";
 const CITY = [[33.545,130.375],[33.600,130.440]];
 
 let custom = [], st = {}, dayF = "all", genF = "all", sel = null;
-let pickTarget = null, tempLL = null, formDay = 0;
+let pickTarget = null, tempLL = null, formDay = 0, editG = null;
 const markers = {};
 const $ = s => document.querySelector(s);
 const ALL = () => BASE.concat(custom);
@@ -302,11 +314,20 @@ const km = (a, b) => {
 };
 const ofDay = d => ALL().filter(p => st[p.id] && st[p.id].d === d).sort((a,b) => st[a.id].o - st[b.id].o);
 const hasLL = p => typeof p.lat === "number" && typeof p.lng === "number";
+const gOf = p => (st[p.id] && st[p.id].g) || p.g || "その他";
 const genreList = () => {
   const out = [];
-  ALL().forEach(p => { if (p.g && !out.includes(p.g)) out.push(p.g); });
+  ALL().forEach(p => { const g = gOf(p); if (g && !out.includes(g)) out.push(g); });
   return out;
 };
+const genreOptions = () => {
+  const out = genreList().slice();
+  PRESETS.forEach(g => { if (!out.includes(g)) out.push(g); });
+  return out;
+};
+function fillDatalist(){
+  $("#genrelist").innerHTML = genreOptions().map(g => `<option value="${esc(g)}">`).join("");
+}
 
 /* ---------- map ---------- */
 const map = L.map("map", {zoomControl:false, attributionControl:false}).setView([33.60,130.42], 10);
@@ -375,7 +396,7 @@ function paintMap(fit){
   ALL().forEach(p => {
     const s = st[p.id], m = markers[p.id];
     if (!m || !s) return;
-    const visible = (dayF === "all" || s.d === Number(dayF)) && (genF === "all" || p.g === genF);
+    const visible = (dayF === "all" || s.d === Number(dayF)) && (genF === "all" || gOf(p) === genF);
     const el = m.getElement();
     if (!el) return;
     el.style.display = visible ? "" : "none";
@@ -490,7 +511,7 @@ function openForm(open){
   $("#form").classList.toggle("open", open);
   $("#addopen").textContent = open ? "－ 閉じる" : "＋ 行きたいところを追加";
   if (open){
-    $("#genrelist").innerHTML = genreList().map(g => `<option value="${esc(g)}">`).join("");
+    fillDatalist();
     renderFormDay();
     $("#f-n").focus();
   } else clearForm();
@@ -563,9 +584,13 @@ function card(p, showSeq){
     <button class="tick" type="button" data-t="${p.id}" aria-pressed="${!!s.v}" aria-label="${esc(p.n)} を行ったにする">
       <svg viewBox="0 0 24 24"><path d="M4 12.5 9.5 18 20 6"/></svg></button>
     <div class="body" data-s="${p.id}">
-      <div class="name">${showSeq ? `<span class="seq">${s.o}.</span> ` : ""}${esc(p.n)}<span class="genre">${esc(p.g)}</span></div>
+      <div class="name">${showSeq ? `<span class="seq">${s.o}.</span> ` : ""}${esc(p.n)}<button class="genre" type="button" data-eg="${p.id}" aria-label="ジャンルを変える">${esc(gOf(p))}</button></div>
       <div class="meta">${meta}${p.t && s.d ? `　${p.t}ごろ` : ""}${hasLL(p) ? "" : "　位置未設定"}</div>
       ${p.ad ? `<div class="meta">${esc(p.ad)}</div>` : ""}
+      ${editG === p.id ? `<div class="gedit">
+        <input type="text" list="genrelist" value="${esc(gOf(p))}" data-gi="${p.id}" placeholder="飲食店・カフェなど">
+        <button class="ok" type="button" data-gs="${p.id}">保存</button>
+        <button class="no" type="button" data-gx="1">やめる</button></div>` : ""}
       <div class="row">
         <a class="go" href="${mapsUrl(p)}" target="_blank" rel="noopener">マップで開く</a>
         ${loc}${del}
@@ -579,7 +604,7 @@ function card(p, showSeq){
 }
 
 function daySection(d){
-  const stops = ofDay(d).filter(p => genF === "all" || p.g === genF);
+  const stops = ofDay(d).filter(p => genF === "all" || gOf(p) === genF);
   if (!stops.length) return "";
   const full = ofDay(d).filter(hasLL);
   let legs = "";
@@ -596,7 +621,7 @@ function daySection(d){
 function renderList(){
   const days = dayF === "all" ? [1,2,3,4,5,0] : [Number(dayF)];
   const html = days.map(daySection).join("");
-  const shown = ALL().filter(p => (dayF === "all" || st[p.id].d === Number(dayF)) && (genF === "all" || p.g === genF)).length;
+  const shown = ALL().filter(p => (dayF === "all" || st[p.id].d === Number(dayF)) && (genF === "all" || gOf(p) === genF)).length;
   $("#shown").textContent = shown + "件を表示";
   $("#list").innerHTML = html || `<p class="empty">この条件に当てはまる場所がありません。</p>`;
 
@@ -622,6 +647,35 @@ function renderList(){
     const a = st[list[i].id], c = st[list[j].id];
     const tmp = a.o; a.o = c.o; c.o = tmp;
     save(); renderList(); paintMap(false);
+  });
+  $("#list").querySelectorAll("[data-eg]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    editG = editG === b.dataset.eg ? null : b.dataset.eg;
+    renderList(); fillDatalist();
+    if (editG){
+      const inp = $(`[data-gi="${editG}"]`);
+      if (inp){ inp.focus(); inp.select(); }
+    }
+  });
+  $("#list").querySelectorAll("[data-gs]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const id = b.dataset.gs, inp = $(`[data-gi="${id}"]`);
+    const g = (inp.value || "").trim();
+    if (g){
+      st[id].g = g;
+      const cp = custom.find(x => x.id === id);
+      if (cp) cp.g = g;
+      if (genF !== "all" && genF !== g) genF = "all";
+    }
+    editG = null;
+    save(); renderTabs(); renderList(); paintMap(false);
+  });
+  $("#list").querySelectorAll("[data-gx]").forEach(b => b.onclick = e => {
+    e.stopPropagation(); editG = null; renderList();
+  });
+  $("#list").querySelectorAll("[data-gi]").forEach(el => {
+    el.onclick = e => e.stopPropagation();
+    el.onkeydown = e => { if (e.key === "Enter") $(`[data-gs="${el.dataset.gi}"]`).click(); };
   });
   $("#list").querySelectorAll("[data-loc]").forEach(b => b.onclick = e => {
     e.stopPropagation();
@@ -668,6 +722,6 @@ $("#replan").onclick = () => {
 
 (async () => {
   await load();
-  renderTabs(); renderList(); renderTally(); paintMap(true); showLoc();
+  renderTabs(); renderList(); renderTally(); paintMap(true); showLoc(); fillDatalist();
 })();
 </script>
