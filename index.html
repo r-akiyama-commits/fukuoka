@@ -77,6 +77,27 @@
   .toolbar button{background:none;border:none;font:inherit;color:var(--ink-soft);
     text-decoration:underline;text-underline-offset:3px;cursor:pointer;padding:4px 0}
 
+  .synbar{padding:14px 18px 0}
+  .synbar > button{width:100%;background:transparent;border:1px solid var(--line);
+    color:var(--ink-soft);font:12.5px/1 var(--gothic);padding:11px;border-radius:3px;cursor:pointer;
+    display:flex;justify-content:space-between;align-items:center}
+  .synbar > button b{font-weight:600;color:var(--ink)}
+  .syn{display:none;background:var(--surface);border:1px solid var(--line);border-radius:3px;
+    padding:15px 14px;margin-top:10px}
+  .syn.open{display:block}
+  .syn label{display:block;font-size:11.5px;color:var(--ink-soft);margin:11px 0 4px}
+  .syn label:first-child{margin-top:0}
+  .syn input,.syn textarea{width:100%;font:13px var(--gothic);color:var(--ink);background:#FBFAF7;
+    border:1px solid var(--line);border-radius:2px;padding:9px 10px}
+  .syn textarea{height:74px;resize:vertical;font-size:11px;font-family:ui-monospace,monospace}
+  .synrow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .synrow button{flex:1;min-width:120px;font:12.5px/1 var(--gothic);padding:11px 10px;
+    border-radius:2px;cursor:pointer}
+  .synrow .primary{background:var(--ink);border:none;color:#fff}
+  .synrow .ghost{background:transparent;border:1px solid var(--line);color:var(--ink-soft)}
+  .synmsg{font-size:11.5px;margin-top:10px;color:var(--ink-soft);line-height:1.7}
+  .synmsg.ng{color:var(--ume)}
+  .steps{font-size:11px;color:var(--ink-soft);line-height:1.85;margin:10px 0 0;padding-left:18px}
   .addbar{padding:14px 18px 0}
   .addbar > button{width:100%;background:transparent;border:1px dashed var(--ink-soft);
     color:var(--ink);font:14px/1 var(--gothic);padding:14px;border-radius:3px;cursor:pointer}
@@ -158,7 +179,11 @@
   .move button:first-child{border-bottom:1px solid var(--line)}
   .move button:disabled{color:var(--line);cursor:default}
 
-  .legs{font-size:11.5px;color:var(--ink-soft);padding:10px 0 0;font-variant-numeric:tabular-nums}
+  .legs{font-size:11.5px;color:var(--ink-soft);padding:11px 0 0;font-variant-numeric:tabular-nums;line-height:1.9}
+  .legs .leg{display:block}
+  .legs .leg b{font-weight:600;color:var(--ink)}
+  .legs .sum{display:block;margin-top:5px;color:var(--ink)}
+  .legs .src{display:block;margin-top:3px;font-size:10.5px;opacity:.85}
   .empty{padding:26px 18px;font-size:13px;color:var(--ink-soft)}
   footer{padding:30px 18px 44px;font-size:11px;color:var(--ink-soft);line-height:1.8}
   :focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
@@ -236,6 +261,38 @@
     </div>
   </div>
 
+  <div class="synbar">
+    <button id="synopen" type="button"><span>スマホとPCの同期</span><b id="synstate">オフ</b></button>
+    <div class="syn" id="syn">
+      <label for="s-url">Firebase の Database URL</label>
+      <input id="s-url" type="text" placeholder="https://xxxx-default-rtdb.firebaseio.com">
+      <label for="s-room">合言葉（両方の端末で同じ文字列にする）</label>
+      <input id="s-room" type="text" placeholder="fukuoka2026">
+      <div class="synrow">
+        <button class="primary" id="s-save" type="button">同期をオンにする</button>
+        <button class="ghost" id="s-off" type="button">オフにする</button>
+      </div>
+      <div class="synrow">
+        <button class="ghost" id="s-push" type="button">この端末の内容を送る</button>
+        <button class="ghost" id="s-pull" type="button">サーバーから取り込む</button>
+      </div>
+      <p class="synmsg" id="s-msg"></p>
+      <ol class="steps">
+        <li>console.firebase.google.com でプロジェクトを作る</li>
+        <li>左メニューの Realtime Database → データベースを作成 → ロケーションは asia-southeast1 → 「テストモードで開始」</li>
+        <li>表示された https://... のURLを上に貼る</li>
+        <li>Rules タブを開き、read と write を true にして公開（テストモードは30日で切れます）</li>
+        <li>スマホでも同じURLと合言葉を入れる</li>
+      </ol>
+      <label for="s-bk">バックアップ（コピーして保管、貼って復元）</label>
+      <textarea id="s-bk" placeholder="「書き出す」を押すとここに出ます"></textarea>
+      <div class="synrow">
+        <button class="ghost" id="s-ex" type="button">書き出す</button>
+        <button class="ghost" id="s-im" type="button">貼った内容で復元</button>
+      </div>
+    </div>
+  </div>
+
   <div class="toolbar">
     <span id="shown"></span>
     <span><button id="replan" type="button">おすすめ順に戻す</button>　<button id="reset" type="button">チェックを消す</button></span>
@@ -244,7 +301,8 @@
   <footer>
     Dayの数字を押すと日程を入れ替えられます。「−」は未定。右端の▲▼で同じDay内の順番を変えられます。<br>
     店名の横のジャンルタグを押すと、そのジャンルを書き換えられます。入力欄には候補が出ますが、ない言葉を打てばそのまま増えます。<br>
-    時刻と距離は目安です。距離は直線距離なので、実際の移動時間は経路によって変わります。営業時間・定休日は行く前に「マップで開く」で確認してください。<br>
+    車の所要時間はオンラインなら実際の道路を通るルートで計算します。渋滞・信号・駐車の時間は入っていないので、市街地は1.3倍くらいで見ておくと安全です。オフラインのときは距離からの概算に切り替わります。<br>
+    時刻は目安です。営業時間・定休日は行く前に「マップで開く」で確認してください。<br>
     メモで打ち消していた BUFFER と SUPER PERSONAL SHOWCASE は入れていません。
   </footer>
 </div>
@@ -312,6 +370,59 @@ const km = (a, b) => {
   const h = Math.sin(dLat/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLng/2)**2;
   return 2*R*Math.asin(Math.sqrt(h));
 };
+/* 車の所要時間。ルート実測が取れなければ直線距離から推定する */
+const ROUTE = {};
+const speedOf = r => r < 3 ? 20 : r < 8 ? 25 : r < 20 ? 32 : r < 50 ? 45 : 62;
+function estLeg(a, b){
+  const st8 = km(a, b);
+  const road = st8 * (st8 < 5 ? 1.35 : st8 < 20 ? 1.3 : 1.25);
+  return {km: road, min: road / speedOf(road) * 60};
+}
+function fmtMin(m){
+  const t = Math.max(5, Math.round(m / 5) * 5);
+  return t < 60 ? t + "分" : Math.floor(t/60) + "時間" + (t % 60 ? (t % 60) + "分" : "");
+}
+const walkMin = (a, b) => Math.max(5, Math.round(km(a, b) * 1.25 / 4.5 * 60 / 5) * 5);
+const routeKey = stops => stops.map(p => p.lat.toFixed(4) + "," + p.lng.toFixed(4)).join(";");
+
+function legsInner(d){
+  const full = ofDay(d).filter(hasLL);
+  if (full.length < 2) return "";
+  const r = ROUTE[routeKey(full)];
+  let tk = 0, tm = 0;
+  const rows = full.slice(1).map((b, i) => {
+    const a = full[i];
+    const leg = r ? r.legs[i] : estLeg(a, b);
+    tk += leg.km; tm += leg.min;
+    const w = km(a, b) < 1.8 ? `　徒歩なら${walkMin(a, b)}分` : "";
+    return `<span class="leg">${esc(a.area || a.n)} → ${esc(b.area || b.n)}　<b>車 ${fmtMin(leg.min)}</b>　${leg.km.toFixed(1)}km${w}</span>`;
+  }).join("");
+  return rows +
+    `<span class="sum">この日の移動 合計 車 約${fmtMin(tm)}　道のり 約${tk.toFixed(1)}km</span>` +
+    `<span class="src">${r ? "実際の道路を通ったルートで計算（渋滞は考慮していません）" : "距離からの概算。オンラインだと実際の道路で再計算します"}</span>`;
+}
+async function refineLegs(days){
+  for (const d of days){
+    const full = ofDay(d).filter(hasLL);
+    if (full.length < 2) continue;
+    const key = routeKey(full);
+    if (ROUTE[key]) continue;
+    try {
+      const c = new AbortController();
+      const to = setTimeout(() => c.abort(), 7000);
+      const url = "https://router.project-osrm.org/route/v1/driving/" +
+        full.map(p => p.lng + "," + p.lat).join(";") + "?overview=false";
+      const res = await fetch(url, {signal: c.signal});
+      clearTimeout(to);
+      const j = await res.json();
+      if (j.code !== "Ok" || !j.routes || !j.routes[0].legs) continue;
+      ROUTE[key] = {legs: j.routes[0].legs.map(l => ({km: l.distance / 1000, min: l.duration / 60}))};
+    } catch(e){ continue; }
+    const el = document.getElementById("legs-" + d);
+    if (el) el.innerHTML = legsInner(d);
+  }
+}
+
 const ofDay = d => ALL().filter(p => st[p.id] && st[p.id].d === d).sort((a,b) => st[a.id].o - st[b.id].o);
 const hasLL = p => typeof p.lat === "number" && typeof p.lng === "number";
 const gOf = p => (st[p.id] && st[p.id].g) || p.g || "その他";
@@ -481,6 +592,7 @@ async function load(){
   if (raw){
     try {
       const s = JSON.parse(raw);
+      ts = s.ts || 0;
       custom = Array.isArray(s.custom) ? s.custom : [];
       ensureState();
       Object.keys(s.st || {}).forEach(id => { if (P(id)) st[id] = Object.assign(st[id] || {}, s.st[id]); });
@@ -494,11 +606,95 @@ async function load(){
   }
   ensureState();
 }
-async function save(){
-  const v = JSON.stringify({st, custom});
-  try { if (window.storage){ await window.storage.set(KEY, v); return; } } catch(e){}
-  try { localStorage.setItem(KEY, v); } catch(e){}
+let ts = 0, pushTimer = null;
+async function save(local){
+  ts = Date.now();
+  const v = JSON.stringify({st, custom, ts});
+  try { if (window.storage){ await window.storage.set(KEY, v); } else localStorage.setItem(KEY, v); }
+  catch(e){ try { localStorage.setItem(KEY, v); } catch(e2){} }
+  if (!local && SY.url && SY.room){
+    clearTimeout(pushTimer);
+    pushTimer = setTimeout(() => push(true), 900);
+  }
 }
+
+/* ---------- 同期（Firebase Realtime Database の REST） ---------- */
+const SKEY = "fukuoka-sync";
+let SY = {url:"", room:""};
+const syUrl = () => SY.url.replace(/\/+$/, "") + "/fukuoka/" + encodeURIComponent(SY.room) + ".json";
+function loadSync(){
+  try { SY = Object.assign(SY, JSON.parse(localStorage.getItem(SKEY) || "{}")); } catch(e){}
+  $("#s-url").value = SY.url || "";
+  $("#s-room").value = SY.room || "";
+  syState();
+}
+function saveSync(){ try { localStorage.setItem(SKEY, JSON.stringify(SY)); } catch(e){} }
+function syState(t){
+  $("#synstate").textContent = SY.url && SY.room ? (t || "オン") : "オフ";
+}
+function msg(t, ng){
+  const el = $("#s-msg");
+  el.textContent = t;
+  el.classList.toggle("ng", !!ng);
+}
+async function push(quiet){
+  if (!SY.url || !SY.room) return;
+  try {
+    const r = await fetch(syUrl(), {method:"PUT", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({st, custom, ts})});
+    if (!r.ok) throw new Error(r.status);
+    syState("オン");
+    if (!quiet) msg("送信しました。スマホ側で「サーバーから取り込む」か、開き直せば反映されます。");
+  } catch(e){
+    syState("送信待ち");
+    if (!quiet) msg("送信できませんでした。URLと合言葉、Rules の設定を確認してください。", true);
+  }
+}
+async function pull(quiet){
+  if (!SY.url || !SY.room) return false;
+  try {
+    const r = await fetch(syUrl() + "?t=" + Date.now());
+    if (!r.ok) throw new Error(r.status);
+    const d = await r.json();
+    if (!d || !d.st){ if (!quiet) msg("サーバーにまだデータがありません。先に「この端末の内容を送る」を押してください。"); return false; }
+    if ((d.ts || 0) <= ts){ if (!quiet) msg("この端末の方が新しいので、取り込みませんでした。"); return false; }
+    custom = Array.isArray(d.custom) ? d.custom : [];
+    st = d.st; ts = d.ts || Date.now();
+    ensureState();
+    await save(true);
+    renderTabs(); renderList(); renderTally(); paintMap(false);
+    syState("オン");
+    if (!quiet) msg("サーバーの内容を取り込みました。");
+    return true;
+  } catch(e){
+    syState("接続なし");
+    if (!quiet) msg("取り込めませんでした。通信とURLを確認してください。", true);
+    return false;
+  }
+}
+$("#synopen").onclick = () => $("#syn").classList.toggle("open");
+$("#s-save").onclick = async () => {
+  SY.url = $("#s-url").value.trim(); SY.room = $("#s-room").value.trim();
+  if (!SY.url || !SY.room){ msg("URLと合言葉の両方を入れてください。", true); return; }
+  saveSync(); syState("オン");
+  const got = await pull(true);
+  msg(got ? "同期をオンにし、サーバーの内容を取り込みました。" : "同期をオンにしました。この端末の内容を送信します。");
+  if (!got) push(true);
+};
+$("#s-off").onclick = () => { SY = {url:"", room:""}; saveSync(); syState(); msg("同期をオフにしました。データは端末に残っています。"); };
+$("#s-push").onclick = () => push(false);
+$("#s-pull").onclick = () => pull(false);
+$("#s-ex").onclick = () => { $("#s-bk").value = JSON.stringify({st, custom, ts}); $("#s-bk").select(); };
+$("#s-im").onclick = async () => {
+  try {
+    const d = JSON.parse($("#s-bk").value);
+    if (!d.st) throw new Error("format");
+    custom = Array.isArray(d.custom) ? d.custom : [];
+    st = d.st; ensureState(); await save();
+    renderTabs(); renderList(); renderTally(); paintMap(false);
+    msg("復元しました。");
+  } catch(e){ msg("読み込めませんでした。文字列が途中で切れていないか確認してください。", true); }
+};
 function renumber(d){ ofDay(d).forEach((p, i) => st[p.id].o = i + 1); }
 
 /* ---------- 追加フォーム ---------- */
@@ -606,13 +802,8 @@ function card(p, showSeq){
 function daySection(d){
   const stops = ofDay(d).filter(p => genF === "all" || gOf(p) === genF);
   if (!stops.length) return "";
-  const full = ofDay(d).filter(hasLL);
-  let legs = "";
-  if (full.length > 1 && genF === "all"){
-    const parts = full.slice(1).map((p, i) => `${esc(full[i].area || full[i].n)} → ${esc(p.area || p.n)} ${km(full[i], p).toFixed(1)}km`);
-    const total = full.slice(1).reduce((a, p, i) => a + km(full[i], p), 0);
-    legs = `<p class="legs">${parts.join("　／　")}<br>直線合計 約${total.toFixed(1)}km</p>`;
-  }
+  const legs = (genF === "all" && d)
+    ? `<p class="legs" id="legs-${d}">${legsInner(d)}</p>` : "";
   return `<section class="day d${d}">
     <h2><em class="sw"></em>${d ? "Day " + d : "未定"}<u>${DAYNOTE[d] || ""}</u></h2>
     <ul>${stops.map(p => card(p, !!d)).join("")}</ul>${legs}</section>`;
@@ -697,6 +888,7 @@ function renderList(){
     if (e.target.closest("a") || e.target.closest("button")) return;
     select(el.dataset.s, false);
   });
+  if (genF === "all") refineLegs(days.filter(Boolean));
 }
 
 function renderTally(){
@@ -723,5 +915,7 @@ $("#replan").onclick = () => {
 (async () => {
   await load();
   renderTabs(); renderList(); renderTally(); paintMap(true); showLoc(); fillDatalist();
+  loadSync();
+  if (SY.url && SY.room) pull(true);
 })();
 </script>
