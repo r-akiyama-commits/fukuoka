@@ -57,6 +57,11 @@
   .pin.done{background:var(--done);opacity:.65}
   .pin.sel{width:33px;height:33px;font-size:13px;border-width:2px;z-index:600}
   .pin.temp{background:#fff;color:var(--ume);border:2px solid var(--ume)}
+  .leglabel{position:absolute;transform:translate(-50%,-50%);white-space:nowrap;
+    font:600 10.5px/1 var(--gothic);background:rgba(255,255,255,.93);
+    border:1px solid currentColor;border-radius:3px;padding:3px 6px;
+    box-shadow:0 1px 3px rgba(31,42,51,.18)}
+  .leglabel u{text-decoration:none;font-weight:400;opacity:.75}
   .ref{display:flex;align-items:center;gap:5px;white-space:nowrap;font:11px/1 var(--gothic);color:var(--ink-soft)}
   .ref::before{content:"";width:5px;height:5px;flex:0 0 auto;border-radius:50%;
     background:var(--ink-soft);box-shadow:0 0 0 2px rgba(237,235,228,.85)}
@@ -420,6 +425,7 @@ async function refineLegs(days){
     } catch(e){ continue; }
     const el = document.getElementById("legs-" + d);
     if (el) el.innerHTML = legsInner(d);
+    drawLabels();
   }
 }
 
@@ -468,7 +474,30 @@ REFS.forEach(r => L.marker([r.lat,r.lng], {
 }).addTo(map));
 
 const routes = L.layerGroup().addTo(map);
+const labels = L.layerGroup().addTo(map);
 let tempMarker = null;
+
+/* 区間の真ん中に所要時間を出す。ピンが近すぎるときは省く */
+function drawLabels(){
+  labels.clearLayers();
+  if (dayF === "all") return;
+  const d = Number(dayF);
+  if (!d) return;
+  const stops = ofDay(d).filter(hasLL);
+  const r = ROUTE[routeKey(stops)];
+  for (let i = 0; i < stops.length - 1; i++){
+    const a = stops[i], b = stops[i+1];
+    const pa = map.latLngToLayerPoint([a.lat, a.lng]), pb = map.latLngToLayerPoint([b.lat, b.lng]);
+    if (pa.distanceTo(pb) < 52) continue;
+    const leg = r ? r.legs[i] : estLeg(a, b);
+    labels.addLayer(L.marker([(a.lat+b.lat)/2, (a.lng+b.lng)/2], {
+      icon: L.divIcon({className:"", iconSize:[0,0],
+        html:`<div class="leglabel" style="color:${DAYCOL[d]}">車 ${fmtMin(leg.min)}<u>　${leg.km.toFixed(1)}km</u></div>`}),
+      interactive:false, zIndexOffset:800
+    }));
+  }
+}
+map.on("zoomend", drawLabels);
 
 function pinIcon(html, cls){
   return L.divIcon({className:"", html:`<div class="pin ${cls}"><s>${html}</s></div>`,
@@ -522,6 +551,7 @@ function paintMap(fit){
         {color:DAYCOL[d], weight:2, opacity:.75, dashArray:"5 5"}).addTo(routes);
     if (fit && stops.length) map.fitBounds(L.latLngBounds(stops.map(p => [p.lat,p.lng])), {padding:[46,46]});
   } else if (fit) fitAll();
+  drawLabels();
 }
 function select(id, fromMap){
   sel = id;
